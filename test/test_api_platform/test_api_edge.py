@@ -80,7 +80,7 @@ class TestsEdge(unittest.TestCase):
 
     def test_go_to_customer_order_details(self):
         customer_id = 1
-        order_id = 1
+        order_id = 2
         self.app.go_to_customer_order_details(customer_id, order_id)
         text_on_page = self.driver.find_element(by=By.TAG_NAME, value="body").get_attribute("innerHTML")
         self.assertEqual(text_on_page, f"order no {order_id} from customer no {customer_id}")

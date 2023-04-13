@@ -1,9 +1,11 @@
-from flask import jsonify, Blueprint
+from flask import Blueprint, g
+from API_platform.authenticator import check_authentication
 
 bp = Blueprint("api_get", __name__, url_prefix="/")
 
 
 @bp.route("products", methods=["GET"])
+@check_authentication
 def get_products():
     return "list of all products"
 

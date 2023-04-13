@@ -27,17 +27,9 @@ def create_app(test_config=None):
     import API_platform.api_get as api_get
 
     app.register_blueprint(api_get.bp)
-    #
-    # import API_platform.api_post as api_post
-    #
-    # app.register_blueprint(api_post.bp)
-    #
-    # import API_platform.api_update as api_update
-    #
-    # app.register_blueprint(api_update.bp)
-    #
-    # import API_platform.api_delete as api_delete
-    #
-    # app.register_blueprint(api_delete.bp)
+
+    import API_platform.authenticator as auth
+
+    app.register_blueprint(auth.bp)
 
     return app
