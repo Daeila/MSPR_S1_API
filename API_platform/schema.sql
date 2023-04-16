@@ -1,0 +1,20 @@
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS keys;
+
+
+CREATE TABLE Users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+);
+
+CREATE TABLE Keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    api_key TEXT UNIQUE NOT NULL,
+    key_type INTEGER NOT NULL CHECK (key_type IN (1, 2)),
+    key_creation_date DATE NOT NULL,
+    confirmed INTEGER NOT NULL CHECK (confirmed IN (0, 1)),
+
+    FOREIGN KEY (email) REFERENCES Users(email) ON DELETE CASCADE ON UPDATE CASCADE
+);
