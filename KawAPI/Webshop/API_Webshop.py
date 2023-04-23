@@ -2,31 +2,47 @@
 #pip install flask
 
 from flask import Flask, jsonify
+import requests
+import json
 
 app = Flask(__name__)
 
 # Créer un endpoint pour récupérer tous les produits
-@app.route('/api/products', methods=['GET'])
+@app.route('/api/v1/products', methods=['GET'])
 def get_products():
-    products = [
-        {'id': 1, 'name': 'Produit 1', 'price': 10.99},
-        {'id': 2, 'name': 'Produit 2', 'price': 19.99},
-        {'id': 3, 'name': 'Produit 3', 'price': 7.99},
-    ]
-    return jsonify(products)
+    products = requests.get('https://615f5fb4f7254d0017068109.mockapi.io/api/v1/products')
+    p = jsonify(products.json())
+    return p
 
-# Créer un endpoint pour récupérer un produit par ID
-@app.route('/api/products/<int:id>', methods=['GET'])
-def get_product(id):
-    products = [
-        {'id': 1, 'name': 'Produit 1', 'price': 10.99},
-        {'id': 2, 'name': 'Produit 2', 'price': 19.99},
-        {'id': 3, 'name': 'Produit 3', 'price': 7.99},
-    ]
-    for product in products:
-        if product['id'] == id:
-            return jsonify(product)
-    return jsonify({'message': 'Produit non trouvé'})
+# Créer un endpoint pour récupérer tous les customers
+@app.route('/api/v1/customers', methods=['GET'])
+def get_customers():
+    products = requests.get('https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers')
+    c = jsonify(products.json())
+    return c
+
+import requests as r
+def get_product_details(product_id):
+    try:
+      response = r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/products/{product_id}")
+      return response.json()
+    except:
+      return "un msg d'erreur ou un truc dans le genre jsp"
+
+#result = get_product_details(3)
+#print(result)
+
+def get_customer_details(customerId):
+    try:
+      response = r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/products/{customerId}")
+      return response.json()
+    except:
+      return "un msg d'erreur ou un truc dans le genre jsp"
+
+#result = get_customer_details(7)
+#print(result)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
