@@ -29,18 +29,18 @@ def get_product_details(product_id):
     except:
       return "un msg d'erreur ou un truc dans le genre jsp"
 
-#result = get_product_details(3)
-#print(result)
+result = get_product_details(3)
+print(result)
 
 def get_customer_details(customerId):
     try:
-      response = r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/products/{customerId}")
+      response = r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customerId}")
       return response.json()
     except:
       return "un msg d'erreur ou un truc dans le genre jsp"
 
-#result = get_customer_details(7)
-#print(result)
+result = get_customer_details(7)
+print(result)
 
 
 
