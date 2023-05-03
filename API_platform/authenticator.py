@@ -19,10 +19,17 @@ def has_too_many_requests(api_key):
 def check_authentication(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if request.headers.get("API_KEY") is None:
-            return jsonify({"Error": "No validation key given. Access denied"}), 403
         api_key = request.headers.get("API_KEY")
-        if api_key != "test":
+        if api_key is None:
+            if session and "api_key" in session:
+                api_key = session["api_key"]
+            else:
+                return jsonify({"Error": "No validation key given. Access denied"}), 403
+        db = get_db()
+        user = db.execute(
+            "SELECT k.api_key FROM Keys k WHERE api_key = ?",
+            (api_key,)).fetchone()
+        if user is None:
             return jsonify({"Error": "Validation key not recognized. Access denied"}), 403
         if has_too_many_requests(api_key):
             return jsonify({"Error": "Too many requests. Try again later"}), 403
@@ -33,7 +40,7 @@ def check_authentication(f):
 
 @bp.route("key", methods=["GET"])
 def display_key():
-    if "api_key" in session:
+    if session and "api_key" in session:
         return render_template("auth/qrcode.html", api_key=session["api_key"])
     else:
         return url_for("authenticator.login_api_user")
@@ -48,7 +55,8 @@ def login_api_user():
         error = None
 
         user = db.execute(
-            "SELECT * FROM Users JOIN Keys USING (email) WHERE email = ?", (email,)).fetchone()
+            "SELECT u.email, u.password, u.user_type, k.api_key FROM Users u LEFT JOIN Keys k ON (u.id = k.user_id) WHERE email = ?",
+            (email,)).fetchone()
         if user is None:
             error = "Email incorrect."
         elif not check_password_hash(user["password"], password):
@@ -58,7 +66,7 @@ def login_api_user():
             session.clear()
             session["email"] = user["email"]
             session["api_key"] = user["api_key"]
-            session["key_type"] = user["key_type"]
+            session["user_type"] = user["user_type"]
 
             return redirect(url_for("authenticator.display_key"))
 
@@ -67,12 +75,16 @@ def login_api_user():
     return render_template("auth/login.html")
 
 
+def logout_api_user():
+    pass
+
+
 @bp.route("register", methods=["GET", "POST"])
 def register_api_user():
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
-        key_type = int(request.form["key_type"])
+        user_type = request.form["user_type"]
         db = get_db()
         error = None
 
@@ -80,10 +92,13 @@ def register_api_user():
             error = "Veuillez fournir un email."
         elif not password:
             error = "Veuillez fournir un mot de passe."
+        elif not user_type:
+            error = "Veuillez fournir un type d'utilisateur."
         if error is None:
             try:
                 db.execute(
-                    "INSERT INTO Users (email, password) VALUES(?, ?)", (email, generate_password_hash(password)))
+                    "INSERT INTO Users (email, password, user_type) VALUES(?, ?, ?)",
+                    (email, generate_password_hash(password), int(user_type)))
                 db.commit()
             except db.IntegrityError:
                 error = f"L'email {email} existe déjà."
@@ -91,17 +106,23 @@ def register_api_user():
                 session.clear()
                 session["email"] = email
                 session["api_key"] = generate_key(16)
-                session["key_type"] = key_type
+                session["user_type"] = user_type
                 try:
+                    user = db.execute(
+                        "SELECT id FROM Users WHERE email = ?", (email,)).fetchone()
                     db.execute(
-                        "INSERT INTO Keys (email, api_key, key_type, key_creation_date, confirmed) VALUES(?, ?, ?, ?, ?)",
-                        (session["email"], session["api_key"], 1, datetime.now(), 0))
+                        "INSERT INTO Keys (user_id, api_key, key_creation_date) VALUES(?, ?, ?)",
+                        (user["id"], session["api_key"], str(datetime.now().time())))
                     db.commit()
                 except db.IntegrityError:
-                    pass
+                    error = "Erreur lors de l'enregistrement des données."
                 else:
                     return redirect(url_for("authenticator.display_key"))
 
         flash(error)
 
     return render_template("auth/register.html")
+
+
+def delete_user_from_db():
+    pass

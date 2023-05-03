@@ -1,5 +1,4 @@
 import unittest
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
@@ -43,6 +42,8 @@ class PageObject:
 
 
 class TestsEdge(unittest.TestCase):
+    driver = None
+
     @classmethod
     def setUpClass(cls):
         cls.driver = webdriver.Remote(
