@@ -29,8 +29,8 @@ def get_product_details(product_id):
     except:
       return "un msg d'erreur ou un truc dans le genre jsp"
 
-result = get_product_details(3)
-print(result)
+# result = get_product_details(3)
+# print(result)
 
 def get_customer_details(customerId):
     try:
@@ -39,8 +39,8 @@ def get_customer_details(customerId):
     except:
       return "un msg d'erreur ou un truc dans le genre jsp"
 
-result = get_customer_details(7)
-print(result)
+# result = get_customer_details(7)
+# print(result)
 
 
 
