@@ -16,6 +16,9 @@ class MyTestCase(unittest.TestCase):
     def test_product_id(self):
         self.assertIsNotNone(get_product_details(7), 'Not empty')
 
+    # def test_product_id_3(self):
+    #     self.assert(get_product_details(3),"{'createdAt': '2023-02-20T09:57:59.008Z', 'name': 'Café de Julien Couraud', 'details': {'price': '80.00', 'description': 'The Nagasaki Lander is the trademarked name of several series of Nagasaki sport bikes, that started with the 1984 ABC800J', 'color': 'indigo'}, 'stock': 0, 'id': '3'}")
+
     def test_customer_id(self):
         self.assertIsNotNone(get_customer_details(7), 'Not empty')
 
