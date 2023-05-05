@@ -8,14 +8,14 @@ import json
 app = Flask(__name__)
 
 # Créer un endpoint pour récupérer tous les produits
-@app.route('/api/v1/products', methods=['GET'])
+
 def get_products():
     products = requests.get('https://615f5fb4f7254d0017068109.mockapi.io/api/v1/products')
     p = jsonify(products.json())
     return p
 
 # Créer un endpoint pour récupérer tous les customers
-@app.route('/api/v1/customers', methods=['GET'])
+
 def get_customers():
     products = requests.get('https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers')
     c = jsonify(products.json())
