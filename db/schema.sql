@@ -1,0 +1,19 @@
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS keys;
+
+-- user_type : 1=revendeur, 2=webshop
+CREATE TABLE Users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    user_type INTEGER NOT NULL CHECK (user_type IN (1, 2))
+);
+
+CREATE TABLE Keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT UNIQUE NOT NULL,
+    api_key TEXT UNIQUE NOT NULL,
+    key_creation_date DATE NOT NULL,
+
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
