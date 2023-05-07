@@ -1,23 +1,18 @@
 from flask import Blueprint, g
-from API_platform.authenticator import check_authentication
+from api_webshop.authenticator import check_authentication
 
 bp = Blueprint("api_get", __name__, url_prefix="/")
-
-
-@bp.route("products", methods=["GET"])
-@check_authentication
-def get_products():
-    return "list of all products"
-
-
-@bp.route("products/<int:product_id>", methods=["GET"])
-def get_product_details(product_id):
-    return f"product id no {product_id}"
 
 
 @bp.route("customers", methods=["GET"])
 def get_customers():
     return "list of all customers"
+
+
+@bp.route("customers/<int:customer_id>", methods=["GET"])
+@bp.route("customers/?customer_id=<int:customer_id>", methods=["GET"])
+def get_customer_details(customer_id):
+    return f"customer id no {customer_id}"
 
 
 @bp.route("customers/<int:customer_id>/orders", methods=["GET"])

@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import request, jsonify, Blueprint, render_template, flash, redirect, url_for, session
-from API_platform.db import get_db
+from db.db import get_db
 import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime
@@ -55,7 +55,7 @@ def login_api_user():
         error = None
 
         user = db.execute(
-            "SELECT u.email, u.password, u.user_type, k.api_key FROM Users u LEFT JOIN Keys k ON (u.id = k.user_id) WHERE email = ?",
+            "SELECT u.email, u.password, k.api_key FROM Users u LEFT JOIN Keys k ON (u.id = k.user_id) WHERE email = ?",
             (email,)).fetchone()
         if user is None:
             error = "Email incorrect."
@@ -66,7 +66,6 @@ def login_api_user():
             session.clear()
             session["email"] = user["email"]
             session["api_key"] = user["api_key"]
-            session["user_type"] = user["user_type"]
 
             return redirect(url_for("authenticator.display_key"))
 
@@ -92,12 +91,10 @@ def register_api_user():
             error = "Veuillez fournir un email."
         elif not password:
             error = "Veuillez fournir un mot de passe."
-        elif not user_type:
-            error = "Veuillez fournir un type d'utilisateur."
         if error is None:
             try:
                 db.execute(
-                    "INSERT INTO Users (email, password, user_type) VALUES(?, ?, ?)",
+                    "INSERT INTO Users (email, password, user_type) VALUES(?, ?, 2)",
                     (email, generate_password_hash(password), int(user_type)))
                 db.commit()
             except db.IntegrityError:
@@ -106,7 +103,6 @@ def register_api_user():
                 session.clear()
                 session["email"] = email
                 session["api_key"] = generate_key(16)
-                session["user_type"] = user_type
                 try:
                     user = db.execute(
                         "SELECT id FROM Users WHERE email = ?", (email,)).fetchone()

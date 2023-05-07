@@ -9,6 +9,7 @@ class PageObject:
         "products": "http://localhost:5000/products",
         "product_details": "http://localhost:5000/products/{}",
         "customers": "http://localhost:5000/customers",
+        "customer_details": "http://localhost:5000/customers/{}",
         "customer_orders": "http://localhost:5000/customers/{}/orders",
         "customer_order_details": "http://localhost:5000/customers/{}/orders/{}/products"
     }
@@ -30,6 +31,10 @@ class PageObject:
 
     def go_to_customers(self):
         url = self.URLs["customers"]
+        self.driver.get(url)
+
+    def go_to_customer_details(self):
+        url = self.URLs["cutomer_details"]
         self.driver.get(url)
 
     def go_to_customer_orders(self, customer_id):
@@ -70,6 +75,12 @@ class TestsEdge(unittest.TestCase):
 
     def test_go_to_customers(self):
         self.app.go_to_customers()
+        text_on_page = self.driver.find_element(by=By.TAG_NAME, value="body").get_attribute("innerHTML")
+        self.assertEqual(text_on_page, "list of all customers")
+
+    def test_go_to_customer_details(self):
+        customer_id = 1
+        self.app.go_to_customers(customer_id=1)
         text_on_page = self.driver.find_element(by=By.TAG_NAME, value="body").get_attribute("innerHTML")
         self.assertEqual(text_on_page, "list of all customers")
 

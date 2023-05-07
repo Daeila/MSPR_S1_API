@@ -15,14 +15,14 @@ try:
 except OSError:
     pass
 
-import API_platform.db as db
+import db.db as db
 
 db.init_app(app)
 
-import API_platform.api_get as api_get
+import api_revendeurs.api_get as api_get
 
 app.register_blueprint(api_get.bp)
 
-import API_platform.authenticator as auth
+import api_revendeurs.authenticator as auth
 
 app.register_blueprint(auth.bp)

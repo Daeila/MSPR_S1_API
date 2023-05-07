@@ -4,8 +4,8 @@ from selenium.webdriver.common.by import By
 import secrets
 from werkzeug.security import check_password_hash
 
-from API_platform import app
-from API_platform.db import get_db
+from api_webshop import app
+from db.db import get_db
 
 
 class PageObject:
