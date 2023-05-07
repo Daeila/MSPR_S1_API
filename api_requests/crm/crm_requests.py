@@ -2,16 +2,33 @@ import requests as r
 
 
 def get_customers():
-    return r.get('https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers').json()
+    try:
+        result = r.get('https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers').json()
+        return result
+    except r.exceptions.JSONDecodeError:
+        return None
 
 
 def get_customer_details(customer_id):
-    return r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customer_id}").json()
+    try:
+        result = r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customer_id}").json()
+        return result
+    except r.exceptions.JSONDecodeError:
+        return None
 
 
 def get_customer_orders(customer_id):
-    return r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customer_id}/orders").json()
+    try:
+        result = r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customer_id}/orders").json()
+        return result
+    except r.exceptions.JSONDecodeError:
+        return None
 
 
 def get_customer_order_details(customer_id, order_id):
-    return r.get(f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customer_id}/orders/{order_id}").json()
+    try:
+        result = r.get(
+            f"https://615f5fb4f7254d0017068109.mockapi.io/api/v1/customers/{customer_id}/orders/{order_id}/products").json()
+        return result
+    except r.exceptions.JSONDecodeError:
+        return None
