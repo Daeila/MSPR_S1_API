@@ -3,12 +3,50 @@ from flask import request, jsonify, Blueprint, render_template, flash, redirect,
 from db.db import get_db
 from werkzeug.security import check_password_hash, generate_password_hash
 import jwt
+import smtplib
+import qrcode
+from tempfile import TemporaryFile
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.text import MIMEText
+import ssl
 
 bp = Blueprint("authenticator", __name__, url_prefix="/auth")
 
 
 def generate_token(payload):
     return jwt.encode(payload, "kawa_secret", algorithm="HS256")
+
+
+def send_token_via_email(token, to_email):
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as server:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "subject"
+        msg["From"] = "MSPR.API@gmail.com"
+        msg["To"] = to_email
+        msg.preamble = "test"
+
+        msg_alternative = MIMEMultipart("alternative")
+        msg.attach(msg_alternative)
+
+        msg_text = MIMEText("This is the alternative plain text message.")
+        msg_alternative.attach(msg_text)
+
+        msg_text = MIMEText("<img src='cid:image1'>", "html")
+        msg_alternative.attach(msg_text)
+
+        # TODO : envoyer image par mail
+        qc = qrcode.make(token)
+        temp_qrcode = TemporaryFile()
+        qc.save(temp_qrcode, "PNG")
+        msg_image = MIMEImage(temp_qrcode.read())
+        temp_qrcode.close()
+
+        msg_image.add_header("Content-ID", "<image1>")
+        msg.attach(msg_image)
+
+        server.sendmail(msg["from"], msg["to"], msg.as_string())
+        server.quit()
 
 
 def check_authentication(f):
@@ -103,6 +141,7 @@ def register_api_user():
                 session["email"] = email
                 payload = {"email": session["email"], "user_type": 1}
                 session["token"] = generate_token(payload)
+                send_token_via_email(session["token"], session["email"])
                 return redirect(url_for("authenticator.display_code"))
 
         flash(error)
