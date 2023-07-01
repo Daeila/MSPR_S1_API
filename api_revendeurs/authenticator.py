@@ -2,13 +2,53 @@ from functools import wraps
 from flask import request, jsonify, Blueprint, render_template, flash, redirect, url_for, session
 from db.db import get_db
 from werkzeug.security import check_password_hash, generate_password_hash
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.text import MIMEText
+from io import BytesIO
 import jwt
+import smtplib
+import qrcode
+import ssl
 
 bp = Blueprint("authenticator", __name__, url_prefix="/auth")
 
 
 def generate_token(payload):
     return jwt.encode(payload, "kawa_secret", algorithm="HS256")
+
+
+def send_token_via_email(token, to_email):
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as server:
+        msg = MIMEMultipart("related")
+        msg["Subject"] = "Token d'identification à l'API revendeur"
+        msg["From"] = "MSPR.API@gmail.com"
+        msg["To"] = to_email
+        msg.preamble = ""
+
+        msg_alternative = MIMEMultipart("alternative")
+        msg.attach(msg_alternative)
+
+        msg_text = MIMEText(f"<img src='cid:image1'></img> <div>{token}</div>", "html")
+        msg_alternative.attach(msg_text)
+
+        qc = qrcode.make(token)
+        byte_buffer = BytesIO()
+        qc.save(byte_buffer, "PNG")
+        msg_image = MIMEImage(byte_buffer.getvalue(), "png")
+        byte_buffer.close()
+
+        msg_image.add_header("Content-ID", "<image1>")
+        msg_alternative.attach(msg_image)
+
+        msg_token = MIMEText(token, "plain")
+        msg.attach(msg_token)
+
+        msg.attach(msg_alternative)
+
+        server.login("MSPR.API@gmail.com", "dhpluwgxenbfszjs")
+        server.sendmail(msg["from"], msg["to"], msg.as_string())
+        server.quit()
 
 
 def check_authentication(f):
@@ -103,6 +143,7 @@ def register_api_user():
                 session["email"] = email
                 payload = {"email": session["email"], "user_type": 1}
                 session["token"] = generate_token(payload)
+                send_token_via_email(session["token"], session["email"])
                 return redirect(url_for("authenticator.display_code"))
 
         flash(error)
