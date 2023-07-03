@@ -11,7 +11,7 @@ def get_products():
     return erp.get_products()
 
 
-@check_authentication
 @bp.route("products/<int:product_id>", methods=["GET"])
+@check_authentication
 def get_product_details(product_id):
     return erp.get_product_details(product_id)

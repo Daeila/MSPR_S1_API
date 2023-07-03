@@ -18,6 +18,14 @@ def generate_token(payload):
     return jwt.encode(payload, "kawa_secret", algorithm="HS256")
 
 
+def decode_token(token):
+    try:
+        payload = jwt.decode(token, "kawa_secret", algorithms=["HS256"])
+        return payload
+    except(jwt.exceptions.InvalidSignatureError, jwt.exceptions.DecodeError):
+        return None
+
+
 def send_token_via_email(token, to_email):
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as server:
         msg = MIMEMultipart("related")
@@ -60,54 +68,68 @@ def check_authentication(f):
                 token = session["token"]
             else:
                 return jsonify({"Error": "No token given. Access denied"}), 403
-        try:
-            payload = jwt.decode(token, "kawa_secret", algorithms=["HS256"])
-        except (jwt.exceptions.InvalidSignatureError, jwt.exceptions.DecodeError):
+        payload = decode_token(token)
+        if payload is None:
             return jsonify({"Error": "Invalid token. Access denied"}), 403
-        if "user_type" not in payload or "email" not in payload:
+        if "user_type" not in payload or "email" not in payload or "password" not in payload:
             return jsonify({"Error": "Token not recognized. Access denied"}), 403
         if payload["user_type"] != 1:
             return jsonify({"Error": "Invalid user type token. Access denied"}), 403
         db = get_db()
         user = db.execute(
-            "SELECT email FROM Users WHERE email = ?",
+            "SELECT email, password FROM Users WHERE email = ? AND user_type = 1",
             (payload["email"],)).fetchone()
         if user is None:
             return jsonify({"Error": "User not recognized. Access denied"}), 403
+        if not check_password_hash(user["password"], payload["password"]):
+            return jsonify({"Error": "Inorrect password. Access denied"}), 403
         return f(*args, **kwargs)
 
     return decorated_function
 
 
-@bp.route("code", methods=["GET"])
+@bp.route("code", methods=["GET", "POST"])
 def display_code():
+    if request.method == "POST":
+        logout_api_user()
     if session and "token" in session:
         return render_template("auth/qrcode.html", token=session["token"])
     else:
-        return url_for("authenticator.login_api_user")
+        return redirect(url_for("authenticator.login_api_user"))
 
 
 @bp.route("login", methods=["GET", "POST"])
 def login_api_user():
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-        db = get_db()
-        error = None
+        token = request.form["token"]
 
-        user = db.execute(
-            "SELECT email, password FROM Users WHERE email = ?",
-            (email,)).fetchone()
-        if user is None:
-            error = "Email incorrect."
-        elif not check_password_hash(user["password"], password):
-            error = "Mot de passe incorrect."
+        error = None
+        payload = decode_token(token)
+        if not payload or "email" not in payload or "password" not in payload or "user_type" not in payload:
+            error = "Token non valide"
 
         if error is None:
-            session.clear()
-            session["email"] = user["email"]
+            db = get_db()
+            user = None
+            try:
+                user = db.execute(
+                    "SELECT email, password FROM Users WHERE email = ? AND user_type = 1",
+                    (payload["email"],)).fetchone()
+                if user is None:
+                    error = "Email incorrect."
+                elif not check_password_hash(user["password"], payload["password"]):
+                    error = "Mot de passe incorrect."
+                elif payload["user_type"] != 1:
+                    error = "Type d'utilisateur incorrect."
+            except db.IntegrityError:
+                error = "Erreur db"
 
-            return redirect(url_for("authenticator.display_code"))
+            if error is None:
+                session.clear()
+                session["email"] = user["email"]
+                session["token"] = token
+
+                return redirect(url_for("authenticator.display_code"))
 
         flash(error)
 
@@ -115,7 +137,8 @@ def login_api_user():
 
 
 def logout_api_user():
-    pass
+    if session:
+        session.clear()
 
 
 @bp.route("register", methods=["GET", "POST"])
@@ -141,7 +164,7 @@ def register_api_user():
             else:
                 session.clear()
                 session["email"] = email
-                payload = {"email": session["email"], "user_type": 1}
+                payload = {"email": email, "password": password, "user_type": 1}
                 session["token"] = generate_token(payload)
                 send_token_via_email(session["token"], session["email"])
                 return redirect(url_for("authenticator.display_code"))
