@@ -1,73 +1,135 @@
 from functools import wraps
 from flask import request, jsonify, Blueprint, render_template, flash, redirect, url_for, session
 from db.db import get_db
-import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
-from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.text import MIMEText
+from io import BytesIO
+import jwt
+import smtplib
+import qrcode
+import ssl
 
 bp = Blueprint("authenticator", __name__, url_prefix="/auth")
 
 
-def generate_key(length):
-    return secrets.token_urlsafe(length)
+def generate_token(payload):
+    return jwt.encode(payload, "kawa_secret", algorithm="HS256")
 
 
-def has_too_many_requests(api_key):
-    return False
+def decode_token(token):
+    try:
+        payload = jwt.decode(token, "kawa_secret", algorithms=["HS256"])
+        return payload
+    except(jwt.exceptions.InvalidSignatureError, jwt.exceptions.DecodeError):
+        return None
+
+
+def send_token_via_email(token, to_email):
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ssl.create_default_context()) as server:
+        msg = MIMEMultipart("related")
+        msg["Subject"] = "Token d'identification à l'API revendeur"
+        msg["From"] = "MSPR.API@gmail.com"
+        msg["To"] = to_email
+        msg.preamble = ""
+
+        msg_alternative = MIMEMultipart("alternative")
+        msg.attach(msg_alternative)
+
+        msg_text = MIMEText(f"<img src='cid:image1'></img> <div>{token}</div>", "html")
+        msg_alternative.attach(msg_text)
+
+        qc = qrcode.make(token)
+        byte_buffer = BytesIO()
+        qc.save(byte_buffer, "PNG")
+        msg_image = MIMEImage(byte_buffer.getvalue(), "png")
+        byte_buffer.close()
+
+        msg_image.add_header("Content-ID", "<image1>")
+        msg_alternative.attach(msg_image)
+
+        msg_token = MIMEText(token, "plain")
+        msg.attach(msg_token)
+
+        msg.attach(msg_alternative)
+
+        server.login("MSPR.API@gmail.com", "dhpluwgxenbfszjs")
+        server.sendmail(msg["from"], msg["to"], msg.as_string())
+        server.quit()
 
 
 def check_authentication(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        api_key = request.headers.get("API_KEY")
-        if api_key is None:
-            if session and "api_key" in session:
-                api_key = session["api_key"]
+        token = request.headers.get("TOKEN")
+        if token is None:
+            if session and "token" in session:
+                token = session["token"]
             else:
-                return jsonify({"Error": "No validation key given. Access denied"}), 403
+                return jsonify({"Error": "No token given. Access denied"}), 403
+        payload = decode_token(token)
+        if payload is None:
+            return jsonify({"Error": "Invalid token. Access denied"}), 403
+        if "user_type" not in payload or "email" not in payload or "password" not in payload:
+            return jsonify({"Error": "Token not recognized. Access denied"}), 403
+        if payload["user_type"] != 1:
+            return jsonify({"Error": "Invalid user type token. Access denied"}), 403
         db = get_db()
         user = db.execute(
-            "SELECT k.api_key FROM Keys k WHERE api_key = ?",
-            (api_key,)).fetchone()
+            "SELECT email, password FROM Users WHERE email = ? AND user_type = 1",
+            (payload["email"],)).fetchone()
         if user is None:
-            return jsonify({"Error": "Validation key not recognized. Access denied"}), 403
-        if has_too_many_requests(api_key):
-            return jsonify({"Error": "Too many requests. Try again later"}), 403
+            return jsonify({"Error": "User not recognized. Access denied"}), 403
+        if not check_password_hash(user["password"], payload["password"]):
+            return jsonify({"Error": "Inorrect password. Access denied"}), 403
         return f(*args, **kwargs)
 
     return decorated_function
 
 
-@bp.route("key", methods=["GET"])
-def display_key():
-    if session and "api_key" in session:
-        return render_template("auth/qrcode.html", api_key=session["api_key"])
+@bp.route("code", methods=["GET", "POST"])
+def display_code():
+    if request.method == "POST":
+        logout_api_user()
+    if session and "token" in session:
+        return render_template("auth/qrcode.html", token=session["token"])
     else:
-        return url_for("authenticator.login_api_user")
+        return redirect(url_for("authenticator.login_api_user"))
 
 
 @bp.route("login", methods=["GET", "POST"])
 def login_api_user():
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-        db = get_db()
-        error = None
+        token = request.form["token"]
 
-        user = db.execute(
-            "SELECT u.email, u.password, k.api_key FROM Users u LEFT JOIN Keys k ON (u.id = k.user_id) WHERE email = ?",
-            (email,)).fetchone()
-        if user is None:
-            error = "Email incorrect."
-        elif not check_password_hash(user["password"], password):
-            error = "Mot de passe incorrect."
+        error = None
+        payload = decode_token(token)
+        if not payload or "email" not in payload or "password" not in payload or "user_type" not in payload:
+            error = "Token non valide"
 
         if error is None:
-            session.clear()
-            session["email"] = user["email"]
-            session["api_key"] = user["api_key"]
+            db = get_db()
+            user = None
+            try:
+                user = db.execute(
+                    "SELECT email, password FROM Users WHERE email = ? AND user_type = 1",
+                    (payload["email"],)).fetchone()
+                if user is None:
+                    error = "Email incorrect."
+                elif not check_password_hash(user["password"], payload["password"]):
+                    error = "Mot de passe incorrect."
+                elif payload["user_type"] != 1:
+                    error = "Type d'utilisateur incorrect."
+            except db.IntegrityError:
+                error = "Erreur db"
 
-            return redirect(url_for("authenticator.display_key"))
+            if error is None:
+                session.clear()
+                session["email"] = user["email"]
+                session["token"] = token
+
+                return redirect(url_for("authenticator.display_code"))
 
         flash(error)
 
@@ -75,7 +137,8 @@ def login_api_user():
 
 
 def logout_api_user():
-    pass
+    if session:
+        session.clear()
 
 
 @bp.route("register", methods=["GET", "POST"])
@@ -101,18 +164,10 @@ def register_api_user():
             else:
                 session.clear()
                 session["email"] = email
-                session["api_key"] = generate_key(16)
-                try:
-                    user = db.execute(
-                        "SELECT id FROM Users WHERE email = ?", (email,)).fetchone()
-                    db.execute(
-                        "INSERT INTO Keys (user_id, api_key, key_creation_date) VALUES(?, ?, ?)",
-                        (user["id"], session["api_key"], str(datetime.now().time())))
-                    db.commit()
-                except db.IntegrityError:
-                    error = "Erreur lors de l'enregistrement des données."
-                else:
-                    return redirect(url_for("authenticator.display_key"))
+                payload = {"email": email, "password": password, "user_type": 1}
+                session["token"] = generate_token(payload)
+                send_token_via_email(session["token"], session["email"])
+                return redirect(url_for("authenticator.display_code"))
 
         flash(error)
 

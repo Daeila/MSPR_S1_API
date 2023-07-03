@@ -5,9 +5,12 @@
     <title>QRcode</title>
 </head>
 <body>
+<form method="post">
+    <input type="submit" value="logout" id="logout_btn">
+</form>
 <div>
-    <img name="qrcode" id="qrcode" src="{{ qrcode(api_key) }}">
+    <img name="qrcode" id="qrcode" src="{{ qrcode(token) }}">
 </div>
-<label for="qrcode">{{api_key}}</label>
+<label for="qrcode">{{token}}</label>
 </body>
 </html>
